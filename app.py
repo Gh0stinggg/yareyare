@@ -3,7 +3,7 @@
 
 import streamlit as st
 import pandas as pd
-from transformers import pipeline
+
 
 # Load OpenMed NER model (for disease extraction)
 @st.cache_resource
