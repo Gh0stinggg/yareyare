@@ -5,6 +5,18 @@ import streamlit as st
 import pandas as pd
 from transformers import pipeline
 
+# Force all text to be black
+st.markdown(
+    """
+    <style>
+    body, p, div, span, label, h1, h2, h3, h4, h5, h6 {
+        color: black !important;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
+
 # Load OpenMed NER model (for disease extraction)
 @st.cache_resource
 def load_model():
@@ -16,56 +28,28 @@ ner = load_model()
 
 # Simple mapping of lab tests -> possible conditions
 diagnosis_map = {
-    "Hemoglobin": ["Anemia", "Iron deficiency"],
-    "Glucose": ["Diabetes Mellitus", "Stress hyperglycemia"],
-    "Platelet": ["Dengue", "Bone marrow disorder"],
-    "WBC": ["Infection", "Leukemia"],
+    "hemoglobin": "Anemia",
+    "platelets": "Thrombocytopenia",
+    "glucose": "Diabetes",
+    "cholesterol": "Hyperlipidemia"
 }
 
-st.title("🩸 AI-Powered Blood Test Analyzer (Demo)")
+st.title("🩺 Medical Diagnostics Assistant")
+st.write("Upload lab test results and extract possible conditions.")
 
-uploaded_file = st.file_uploader("Upload a blood test CSV file", type=["csv"])
+uploaded_file = st.file_uploader("Upload CSV with test results", type=["csv"])
 
-if uploaded_file:
+if uploaded_file is not None:
     df = pd.read_csv(uploaded_file)
+    st.dataframe(df)
 
-    st.subheader("📊 Uploaded Report")
-    st.write(df)
+    conditions = []
+    for col in df.columns:
+        if col.lower() in diagnosis_map:
+            conditions.append(diagnosis_map[col.lower()])
 
-    st.subheader("🚦 Abnormal Results & Possible Diagnoses")
-    results = []
-
-    for _, row in df.iterrows():
-        test, value, norm = row["Test"], float(row["Value"]), row["NormalRange"]
-        low, high = map(float, norm.split("-"))
-
-        if value < low or value > high:
-            # Find mapped diagnoses
-            possible_diag = diagnosis_map.get(test, [])
-
-            results.append({
-                "Test": test,
-                "Value": value,
-                "NormalRange": norm,
-                "PossibleDiagnosis": ", ".join(possible_diag) if possible_diag else "N/A"
-            })
-
-    if results:
-        abnormal_df = pd.DataFrame(results)
-        st.dataframe(abnormal_df.style.applymap(
-            lambda x: "color:red" if isinstance(x, (int, float)) else None,
-            subset=["Value"]
-        ))
+    if conditions:
+        st.subheader("🔎 Possible Conditions")
+        st.write(", ".join(set(conditions)))
     else:
-        st.success("✅ All parameters are within normal range!")
-
-    st.subheader("🧠 AI Disease Entity Extraction (NER)")
-    text_input = st.text_area("Paste report notes / doctor's comments here:")
-
-    if st.button("Extract Medical Entities"):
-        if text_input:
-            entities = ner(text_input)
-            for e in entities:
-                st.write(f"**{e['word']}** → {e['entity_group']} (score: {e['score']:.2f})")
-        else:
-            st.warning("Please enter some text to analyze.")
+        st.info("No matching conditions found.")
